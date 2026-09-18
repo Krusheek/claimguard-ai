@@ -11,6 +11,7 @@ except ImportError:
 
 from PIL import Image, ImageChops, ImageEnhance
 from ..schemas.forensics_result import ELAResult, MetadataFlag
+from typing import Any
 
 class ELADetector:
     def __init__(self, resave_quality: int = 90, scale_multiplier: float = 15.0):
@@ -122,7 +123,7 @@ class ELADetector:
                 details=f"Error during ELA analysis: {str(e)}"
             )
     
-    def _save_heatmap(self, heatmap: np.ndarray, output_path: str) -> str:
+    def _save_heatmap(self, heatmap: Any, output_path: str) -> str:
         """Save the ELA heatmap to disk and return path."""
         cv2.imwrite(output_path, heatmap)
         return output_path

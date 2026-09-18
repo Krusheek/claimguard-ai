@@ -4,20 +4,24 @@ try:
 except ImportError:
     pytesseract = None
     TESSERACT_AVAILABLE = False
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
+from typing import Any
 
 class OCREngine:
     def __init__(self):
         pass
 
-    def extract_text(self, image: np.ndarray) -> str:
+    def extract_text(self, image: Any) -> str:
         """Full page OCR."""
         if not TESSERACT_AVAILABLE:
             return ""
         return pytesseract.image_to_string(image, config='--oem 3 --psm 6')
         
-    def extract_with_confidence(self, image: np.ndarray) -> tuple[str, float]:
+    def extract_with_confidence(self, image: Any) -> tuple[str, float]:
         """OCR with average confidence score."""
         if not TESSERACT_AVAILABLE:
             return "", 0.0
@@ -35,7 +39,7 @@ class OCREngine:
         # Tesseract confidence is 0-100, normalize to 0.0-1.0
         return text, avg_conf / 100.0
 
-    def extract_table(self, image: np.ndarray) -> list[list[str]]:
+    def extract_table(self, image: Any) -> list[list[str]]:
         """Table-aware OCR using image_to_data."""
         if not TESSERACT_AVAILABLE:
             return []
@@ -77,7 +81,7 @@ class OCREngine:
             
         return table
 
-    def extract_numbers(self, image: np.ndarray) -> str:
+    def extract_numbers(self, image: Any) -> str:
         """Numeric-only OCR."""
         if not TESSERACT_AVAILABLE:
             return ""

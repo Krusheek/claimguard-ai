@@ -27,7 +27,14 @@ class ExtractionPipeline:
         else:
             self.vlm_extractor = None
 
-    def _convert_image_to_bytes(self, image: np.ndarray) -> bytes:
+    def _convert_image_to_bytes(self, image: Any) -> bytes:
+        if not CV2_AVAILABLE:
+            import io
+            # Fallback to PIL
+            buf = io.BytesIO()
+            image.save(buf, format='PNG')
+            return buf.getvalue()
+            
         success, buffer = cv2.imencode('.png', image)
         if not success:
             raise ValueError("Could not encode image to PNG format")
