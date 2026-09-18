@@ -226,8 +226,18 @@ export default function TrackPage() {
   useEffect(() => {
     fetchStatus()
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/claim/${claimId}`
+    // WebSocket: use VITE_API_URL in production (Render), or current host in dev
+    const apiBase = import.meta.env.VITE_API_URL || ''
+    let wsUrl
+    if (apiBase) {
+      // Production: connect directly to backend (e.g. wss://claimguard-ai-backend.onrender.com)
+      const wsBase = apiBase.replace(/^https?/, (m) => m === 'https' ? 'wss' : 'ws')
+      wsUrl = `${wsBase}/ws/claim/${claimId}`
+    } else {
+      // Development: proxy through Vite
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      wsUrl = `${wsProtocol}//${window.location.host}/ws/claim/${claimId}`
+    }
 
     const connect = () => {
       const ws = new WebSocket(wsUrl)

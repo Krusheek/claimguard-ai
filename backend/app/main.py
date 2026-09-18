@@ -13,16 +13,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ClaimGuard AI API", lifespan=lifespan)
 
-# CORS middleware — allows both admin dashboard and patient portal
+# CORS middleware — open to all origins for LAN access from other devices
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5174",   # Patient portal
-        "http://127.0.0.1:5174",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,   # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
