@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Custom enterprise scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F1F5F9;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+}
+
+@layer components {
+  /* Enterprise Card Standard */
+  .card-enterprise {
+    @apply bg-white rounded-xl border border-slate-200/90 transition-all duration-200;
+    box-shadow: theme('boxShadow.card');
+  }
+  .card-enterprise-hover {
+    @apply hover:border-slate-300;
+  }
+  .card-enterprise-hover:hover {
+    box-shadow: theme('boxShadow.card-hover');
+  }
+
+  /* Ultra-Soft Diffused Card Standard */
+  .card-diffused {
+    @apply bg-white rounded-xl border border-slate-200/80 transition-all duration-200;
+    box-shadow: theme('boxShadow.diffused');
+  }
+  .card-diffused-hover {
+    @apply hover:border-slate-300 transition-all duration-200;
+  }
+  .card-diffused-hover:hover {
+    box-shadow: theme('boxShadow.diffused-hover');
+  }
+
+  /* Crisp 1px Enterprise Border */
+  .border-crisp {
+    @apply border border-slate-200/80;
+  }
+
+  /* Monospace Financial Numerals */
+  .font-financial {
+    @apply font-mono tracking-tight tabular-nums;
+  }
+
+  /* Glass Acrylic Bar */
+  .glass-header {
+    @apply bg-white/85 backdrop-blur-md border-b border-slate-200/90;
+  }
+
+  /* Shimmer Skeleton Base */
+  .skeleton-shimmer {
+    @apply relative overflow-hidden bg-slate-200/80 before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.8s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/40 before:to-transparent;
+  }
+}
+

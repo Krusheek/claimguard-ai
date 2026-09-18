@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.db
+*.sqlite3
+.env
+uploads/
+node_modules/
+dist/
+.vscode/
+.idea/
+*.egg-info/
+data/synthetic_bills/
+data/synthetic_policies/
+data/synthetic_rejections/
