@@ -12,6 +12,9 @@ class Claim(Base):
     
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     patient_name: Mapped[str] = mapped_column(String)
+    patient_email: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    patient_phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    portal_token: Mapped[Optional[str]] = mapped_column(String, nullable=True, default=lambda: str(uuid.uuid4()))
     policy_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     claim_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String)  # Enum: PENDING, EXTRACTING, ANALYZING, COMPLETED, FAILED
@@ -21,6 +24,7 @@ class Claim(Base):
     documents: Mapped[List["Document"]] = relationship(back_populates="claim", cascade="all, delete-orphan")
     analysis_runs: Mapped[List["AnalysisRun"]] = relationship(back_populates="claim", cascade="all, delete-orphan")
 
+
 class Document(Base):
     __tablename__ = "documents"
     
@@ -28,6 +32,7 @@ class Document(Base):
     claim_id: Mapped[str] = mapped_column(ForeignKey("claims.id"))
     document_type: Mapped[str] = mapped_column(String)  # Enum: HOSPITAL_BILL, INSURANCE_POLICY, REJECTION_LETTER
     filename: Mapped[str] = mapped_column(String)
+    original_filename: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     file_path: Mapped[str] = mapped_column(String)
     content_type: Mapped[str] = mapped_column(String)
     file_size_bytes: Mapped[int] = mapped_column()

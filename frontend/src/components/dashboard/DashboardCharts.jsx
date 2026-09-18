@@ -206,9 +206,9 @@ export function StatusDonutChart({
         </span>
       </div>
 
-      {/* Donut Graphic & Center Text */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-6 py-2">
-        <div className="relative w-48 h-48 flex items-center justify-center flex-shrink-0">
+      {/* Donut Graphic */}
+      <div className="flex items-center justify-center py-2">
+        <div className="relative w-40 h-40 flex items-center justify-center flex-shrink-0">
           <svg
             viewBox={`0 0 ${size} ${size}`}
             className="w-full h-full transform -rotate-90 origin-center transition-all duration-300"
@@ -265,37 +265,37 @@ export function StatusDonutChart({
             </span>
           </div>
         </div>
-
-        {/* Legend */}
-        <div className="flex-1 w-full space-y-2">
-          {slices.map((s, i) => {
-            const isHovered = hoveredIdx === i;
-            return (
-              <button
-                type="button"
-                key={s.id}
-                onMouseEnter={() => setHoveredIdx(i)}
-                onMouseLeave={() => setHoveredIdx(null)}
-                onClick={() => handleSliceClick(s.id)}
-                className={`w-full p-2 rounded-lg border transition-all duration-150 text-left flex items-center justify-between group ${
-                  isHovered ? 'bg-slate-50 border-slate-300 shadow-xs' : 'border-slate-100 hover:bg-slate-50/70'
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                  <span className="text-xs font-semibold text-slate-700 group-hover:text-brand-700 truncate">
-                    {s.label}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 font-financial flex-shrink-0 ml-2">
-                  <span className="text-xs font-bold text-slate-900">{s.count}</span>
-                  <span className="text-[11px] text-slate-400 font-medium">({s.percentage}%)</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
       </div>
+
+      {/* Legend — 2-column grid below the donut */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 w-full mt-1">
+        {slices.map((s, i) => {
+          const isHovered = hoveredIdx === i;
+          return (
+            <button
+              type="button"
+              key={s.id}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
+              onClick={() => handleSliceClick(s.id)}
+              className={`p-2 rounded-lg border transition-all duration-150 text-left flex items-start gap-2 group ${
+                isHovered ? 'bg-slate-50 border-slate-300 shadow-xs' : 'border-slate-100 hover:bg-slate-50/70'
+              }`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: s.color }} />
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-slate-700 group-hover:text-brand-700 leading-tight">
+                  {s.label}
+                </p>
+                <p className="text-[11px] font-bold text-slate-900 font-financial">
+                  {s.count} <span className="text-slate-400 font-normal">({s.percentage}%)</span>
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
 
       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
         <span>Click any slice to filter claims table</span>
