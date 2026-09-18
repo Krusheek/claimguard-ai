@@ -1,6 +1,13 @@
 import os
-import cv2
-import numpy as np
+try:
+    import cv2
+    import numpy as np
+    CV2_AVAILABLE = True
+except ImportError:
+    cv2 = None
+    np = None
+    CV2_AVAILABLE = False
+
 from typing import Dict, Any
 
 from .preprocessor import prepare_document

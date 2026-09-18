@@ -1,5 +1,11 @@
-import pytesseract
+try:
+    import pytesseract
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    pytesseract = None
+    TESSERACT_AVAILABLE = False
 import numpy as np
+
 
 class OCREngine:
     def __init__(self):
@@ -7,10 +13,14 @@ class OCREngine:
 
     def extract_text(self, image: np.ndarray) -> str:
         """Full page OCR."""
+        if not TESSERACT_AVAILABLE:
+            return ""
         return pytesseract.image_to_string(image, config='--oem 3 --psm 6')
         
     def extract_with_confidence(self, image: np.ndarray) -> tuple[str, float]:
         """OCR with average confidence score."""
+        if not TESSERACT_AVAILABLE:
+            return "", 0.0
         data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
         text_parts = []
         confidences = []
@@ -27,6 +37,8 @@ class OCREngine:
 
     def extract_table(self, image: np.ndarray) -> list[list[str]]:
         """Table-aware OCR using image_to_data."""
+        if not TESSERACT_AVAILABLE:
+            return []
         data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
         
         words = []
@@ -67,5 +79,8 @@ class OCREngine:
 
     def extract_numbers(self, image: np.ndarray) -> str:
         """Numeric-only OCR."""
+        if not TESSERACT_AVAILABLE:
+            return ""
         custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist="0123456789.,₹Rs/- "'
         return pytesseract.image_to_string(image, config=custom_config).strip()
+

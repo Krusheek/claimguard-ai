@@ -1,7 +1,14 @@
 import io
 import os
-import cv2
-import numpy as np
+try:
+    import cv2
+    import numpy as np
+    CV2_AVAILABLE = True
+except ImportError:
+    cv2 = None
+    np = None
+    CV2_AVAILABLE = False
+
 from PIL import Image, ImageChops, ImageEnhance
 from ..schemas.forensics_result import ELAResult, MetadataFlag
 
@@ -14,6 +21,17 @@ class ELADetector:
         """
         Perform Error Level Analysis on a document image.
         """
+        if not CV2_AVAILABLE:
+            return ELAResult(
+                tamper_score=0.0,
+                assessment="SKIPPED",
+                flags=[MetadataFlag(
+                    flag_type="SYSTEM",
+                    description="OpenCV not available. ELA skipped.",
+                    severity="LOW"
+                )]
+            )
+
         if not os.path.exists(image_path):
             return ELAResult(
                 tamper_score=0.0,

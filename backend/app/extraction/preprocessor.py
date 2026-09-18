@@ -1,11 +1,21 @@
 import os
-import cv2
-import numpy as np
+try:
+    import cv2
+    import numpy as np
+    CV2_AVAILABLE = True
+except ImportError:
+    cv2 = None
+    np = None
+    CV2_AVAILABLE = False
 from PIL import Image
 from pdf2image import convert_from_path
 
-def preprocess_image(image_path: str) -> np.ndarray:
-    """Preprocess image for OCR."""
+def preprocess_image(image_path: str):
+    """Preprocess image for OCR. Returns numpy array if cv2 available, else PIL Image."""
+    if not CV2_AVAILABLE:
+        # Fallback: return PIL image for VLM path
+        return Image.open(image_path)
+
     # Load image
     image = cv2.imread(image_path)
     if image is None:
