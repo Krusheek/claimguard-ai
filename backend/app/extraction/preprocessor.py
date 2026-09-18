@@ -10,7 +10,9 @@ except ImportError:
 from PIL import Image
 from pdf2image import convert_from_path
 
-def preprocess_image(image_path: str):
+from typing import Any
+
+def preprocess_image(image_path: str) -> Any:
     """Preprocess image for OCR. Returns numpy array if cv2 available, else PIL Image."""
     if not CV2_AVAILABLE:
         # Fallback: return PIL image for VLM path
@@ -77,7 +79,7 @@ def pdf_to_images(pdf_path: str) -> list[str]:
         
     return image_paths
 
-def prepare_document(file_path: str) -> list[np.ndarray]:
+def prepare_document(file_path: str) -> list[Any]:
     """Dispatcher to prepare a document (PDF or Image)."""
     ext = file_path.lower().split('.')[-1]
     
