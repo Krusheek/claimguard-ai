@@ -74,31 +74,36 @@ class ExtractionPipeline:
             needs_vlm = True
             
         if needs_vlm and self.use_vlm:
-            # 5. Classify document type using the first page
-            first_page = pages[0]
-            image_bytes = self._convert_image_to_bytes(first_page)
-            mime_type = "image/png"
-            
-            doc_type = self.vlm_extractor.classify_document(image_bytes, mime_type)
-            
-            # 6. Return structured data as Pydantic model
-            if doc_type == 'bill':
-                result = self.vlm_extractor.extract_hospital_bill(image_bytes, mime_type)
-            elif doc_type == 'policy':
-                result = self.vlm_extractor.extract_insurance_policy(image_bytes, mime_type)
-            elif doc_type == 'rejection':
-                result = self.vlm_extractor.extract_rejection_letter(image_bytes, mime_type)
-            else:
-                raise ValueError(f"Unknown document classification: {doc_type}")
+            try:
+                # 5. Classify document type using the first page
+                first_page = pages[0]
+                image_bytes = self._convert_image_to_bytes(first_page)
+                mime_type = "image/png"
                 
-            return {
-                "source": "vlm",
-                "type": doc_type,
-                "data": result,
-                "ocr_fallback_text": combined_text
-            }
-        else:
-            from ..schemas.hospital_bill import HospitalBill
+                doc_type = self.vlm_extractor.classify_document(image_bytes, mime_type)
+                
+                # 6. Return structured data as Pydantic model
+                if doc_type == 'bill':
+                    result = self.vlm_extractor.extract_hospital_bill(image_bytes, mime_type)
+                elif doc_type == 'policy':
+                    result = self.vlm_extractor.extract_insurance_policy(image_bytes, mime_type)
+                elif doc_type == 'rejection':
+                    result = self.vlm_extractor.extract_rejection_letter(image_bytes, mime_type)
+                else:
+                    raise ValueError(f"Unknown document classification: {doc_type}")
+                    
+                return {
+                    "source": "vlm",
+                    "type": doc_type,
+                    "data": result,
+                    "ocr_fallback_text": combined_text
+                }
+            except Exception as e:
+                print(f"VLM extraction failed: {str(e)}. Falling back to OCR...")
+                # Fall through to OCR block below
+
+        # OCR Fallback Block (executed if VLM is disabled or if VLM threw an exception)
+        from ..schemas.hospital_bill import HospitalBill
             from ..schemas.insurance_policy import InsurancePolicy
             from ..schemas.rejection_letter import RejectionLetter
             
