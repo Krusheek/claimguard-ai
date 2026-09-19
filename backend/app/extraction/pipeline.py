@@ -106,11 +106,11 @@ class ExtractionPipeline:
             doc_type = expected_type or "unknown"
             
             if expected_type == 'HOSPITAL_BILL':
-                dummy_data = HospitalBill(bill_id="OCR_FALLBACK", total_amount=0.0)
+                dummy_data = HospitalBill(bill_id="OCR_FALLBACK", total_amount=0.0, hospital_name="Unknown", patient_name="Unknown", line_items=[], subtotal=0.0, net_payable=0.0)
             elif expected_type == 'INSURANCE_POLICY':
-                dummy_data = InsurancePolicy(policy_number="OCR_FALLBACK")
+                dummy_data = InsurancePolicy(policy_number="OCR_FALLBACK", policy_holder_name="Unknown", policy_start_date="2023-01-01", policy_end_date="2024-01-01", total_sum_insured=0.0)
             elif expected_type == 'REJECTION_LETTER':
-                dummy_data = RejectionLetter(rejection_id="OCR_FALLBACK")
+                dummy_data = RejectionLetter(rejection_id="OCR_FALLBACK", claim_number="Unknown", claim_date="2023-01-01", patient_name="Unknown", total_claimed=0.0, total_approved=0.0, total_deducted=0.0)
                 
             return {
                 "source": "ocr",
