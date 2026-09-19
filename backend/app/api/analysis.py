@@ -97,6 +97,9 @@ async def run_analysis_pipeline(claim_id: str, analysis_run_id: str):
             await db.commit()
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"PIPELINE CRASHED: {str(e)}")
             await db.rollback()
             # Mark as failed in a new transaction
             async with AsyncSessionLocal() as session2:
