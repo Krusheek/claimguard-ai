@@ -77,17 +77,18 @@ class BillAnomalyDetector:
             cat = item.category.upper() if item.category else ''
             if cat in CGHS_BENCHMARKS:
                 bench_max = CGHS_BENCHMARKS[cat]['max']
-                if item.amount > bench_max * 3:
+                item_amount = getattr(item, 'amount', getattr(item, 'total', 0.0))
+                if item_amount > bench_max * 3:
                     flags.append(BillAnomalyFlag(
                         anomaly_type="TARIFF_DEVIATION",
-                        description=f"Item '{item.description}' amount (₹{item.amount:.2f}) is >3x CGHS benchmark max (₹{bench_max:.2f})",
+                        description=f"Item '{item.description}' amount (₹{item_amount:.2f}) is >3x CGHS benchmark max (₹{bench_max:.2f})",
                         severity="HIGH",
                         affected_items=[item.description]
                     ))
-                elif item.amount > bench_max * 2:
+                elif item_amount > bench_max * 2:
                     flags.append(BillAnomalyFlag(
                         anomaly_type="TARIFF_DEVIATION",
-                        description=f"Item '{item.description}' amount (₹{item.amount:.2f}) is >2x CGHS benchmark max (₹{bench_max:.2f})",
+                        description=f"Item '{item.description}' amount (₹{item_amount:.2f}) is >2x CGHS benchmark max (₹{bench_max:.2f})",
                         severity="MEDIUM",
                         affected_items=[item.description]
                     ))
@@ -125,7 +126,7 @@ class BillAnomalyDetector:
         if not bill.line_items or not getattr(bill, 'net_payable', None) or bill.net_payable <= 0:
             return flags
             
-        calculated_total = sum(item.amount for item in bill.line_items)
+        calculated_total = sum(getattr(item, 'amount', getattr(item, 'total', 0.0)) for item in bill.line_items)
         if abs(calculated_total - bill.net_payable) > 10.0:  # 10 INR tolerance
             flags.append(BillAnomalyFlag(
                 anomaly_type="ITEMIZATION_MISMATCH",

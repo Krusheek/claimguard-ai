@@ -57,7 +57,8 @@ async def run_analysis_pipeline(claim_id: str, analysis_run_id: str):
             # Run Forensics Engine
             from ..forensics.engine import ForensicsEngine
             forensics_engine = ForensicsEngine()
-            forensics_result = forensics_engine.run(documents)
+            forensics_res = forensics_engine.run(documents, bill=extracted_bill)
+            forensics_dict = forensics_res.model_dump() if hasattr(forensics_res, "model_dump") else (forensics_res.dict() if hasattr(forensics_res, "dict") else forensics_res)
             
             # 4. Store results
             result_query = await db.execute(select(AnalysisRun).where(AnalysisRun.id == analysis_run_id))
@@ -66,7 +67,7 @@ async def run_analysis_pipeline(claim_id: str, analysis_run_id: str):
             analysis_run.completed_at = datetime.utcnow()
             
             result_dict = analysis_result.model_dump() if hasattr(analysis_result, "model_dump") else analysis_result.dict()
-            result_dict["forensics"] = forensics_result
+            result_dict["forensics"] = forensics_dict
             analysis_run.result_data = result_dict
             
             analysis_run.overall_status = analysis_result.overall_status if hasattr(analysis_result, 'overall_status') else 'UNKNOWN'

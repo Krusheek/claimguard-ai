@@ -114,7 +114,8 @@ def test_clause_timeline_moratorium_expired():
     
     rejection = get_base_rejection()
     rejection.claim_date = "2025-09-01"
-    rejection.reasons = [RejectionReason(code="PRE01", description="Pre-existing", category="PRE_EXISTING")]
+    rejection.rejection_reasons = [RejectionReason(code="PRE01", description="Pre-existing", category="PRE_EXISTING")]
+    rejection.reasons = rejection.rejection_reasons
     
     verdict = check_clause_timeline(bill, policy, rejection)
     assert verdict.status == "FAIL"
@@ -127,7 +128,8 @@ def test_clause_timeline_moratorium_active():
     
     rejection = get_base_rejection()
     rejection.claim_date = "2025-09-01"
-    rejection.reasons = [RejectionReason(code="PRE01", description="Pre-existing", category="PRE_EXISTING")]
+    rejection.rejection_reasons = [RejectionReason(code="PRE01", description="Pre-existing", category="PRE_EXISTING")]
+    rejection.reasons = rejection.rejection_reasons
     
     verdict = check_clause_timeline(bill, policy, rejection)
     assert verdict.status == "PASS"
@@ -141,7 +143,8 @@ def test_mental_health_rejected():
     rejection = get_base_rejection()
     rejection.total_claimed = 50000.0
     rejection.total_approved = 0.0
-    rejection.reasons = [RejectionReason(code="MH01", description="Mental Health", category="MENTAL_HEALTH")]
+    rejection.rejection_reasons = [RejectionReason(code="MH01", description="Mental Health", category="MENTAL_HEALTH")]
+    rejection.reasons = rejection.rejection_reasons
     
     verdict = check_mental_health_parity(bill, policy, rejection)
     assert verdict.status == "FAIL"
@@ -161,7 +164,8 @@ def test_waiting_period_expired():
     policy.inception_date = "2023-01-01"
     rejection = get_base_rejection()
     rejection.claim_date = "2025-09-01"
-    rejection.reasons = [RejectionReason(code="WP01", description="Specific Disease", category="WAITING_PERIOD")]
+    rejection.rejection_reasons = [RejectionReason(code="WP01", description="Specific Disease", category="WAITING_PERIOD")]
+    rejection.reasons = rejection.rejection_reasons
     
     verdict = check_waiting_period(bill, policy, rejection)
     assert verdict.status == "FAIL"
@@ -175,7 +179,8 @@ def test_waiting_period_active():
     reason = RejectionReason(code="WP01", description="Initial 30 days", category="WAITING_PERIOD")
     # Setting details attribute as expected by the rule code
     reason.details = "initial"
-    rejection.reasons = [reason]
+    rejection.rejection_reasons = [reason]
+    rejection.reasons = rejection.rejection_reasons
     
     verdict = check_waiting_period(bill, policy, rejection)
     assert verdict.status == "PASS"

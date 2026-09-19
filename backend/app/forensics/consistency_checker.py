@@ -58,6 +58,7 @@ class ConsistencyChecker:
         for unexp in unexpected_meds:
             if unexp in billed_items_text:
                 flags.append(ConsistencyFlag(
+                    issue_type="CONTRADICTORY_TREATMENT",
                     mismatch_type="DIAGNOSIS_MEDICINE",
                     description=f"Found unexpected treatment '{unexp}' for diagnosis '{matched_diag}'",
                     severity="HIGH",

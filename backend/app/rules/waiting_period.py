@@ -13,11 +13,12 @@ from .rule_registry import register_rule
 )
 def check_waiting_period(bill: HospitalBill, policy: InsurancePolicy, rejection: RejectionLetter) -> RuleVerdict:
     try:
-        wp_reasons = [r for r in getattr(rejection, 'rejection_reasons', []) if getattr(r, 'category', '') == "WAITING_PERIOD"]
+        reasons_list = getattr(rejection, 'rejection_reasons', None) or getattr(rejection, 'reasons', []) or []
+        wp_reasons = [r for r in reasons_list if getattr(r, 'category', '') == "WAITING_PERIOD"]
         if not wp_reasons:
             return RuleVerdict(status="SKIPPED", rule_name="Waiting Period Rule", rule_description="Validates if the rejection based on waiting period is actually correct based on policy inception.", confidence=1.0, finding="No WAITING_PERIOD reason cited.")
             
-        policy_start = getattr(policy, 'original_inception_date', getattr(policy, 'policy_start_date', None))
+        policy_start = getattr(policy, 'inception_date', None) or getattr(policy, 'original_inception_date', None) or getattr(policy, 'policy_start_date', None)
         claim_date = getattr(rejection, 'claim_date', None)
         
         if not policy_start or not claim_date:
@@ -33,7 +34,7 @@ def check_waiting_period(bill: HospitalBill, policy: InsurancePolicy, rejection:
         wp_required_days = getattr(policy, 'ped_waiting_period_months', 48) * 30.44
         category_name = "PED"
         
-        wp_details = getattr(wp_reasons[0], 'details', '') or ""
+        wp_details = f"{getattr(wp_reasons[0], 'details', '') or ''} {getattr(wp_reasons[0], 'description', '') or ''}"
         
         if "initial" in wp_details.lower() or "30 day" in wp_details.lower():
             wp_required_days = getattr(policy, 'initial_waiting_period_days', 30)

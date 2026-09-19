@@ -12,6 +12,7 @@ def test_bill_anomaly_detector_normal_bill():
             self.description = description
             self.quantity = quantity
             self.total = total
+            self.amount = total
             
     class MockBill:
         def __init__(self, diagnosis, length_of_stay, line_items, total_amount):
@@ -40,6 +41,7 @@ def test_bill_anomaly_detector_inflated_charges():
             self.description = description
             self.quantity = quantity
             self.total = total
+            self.amount = total
             
     class MockBill:
         def __init__(self, diagnosis, length_of_stay, line_items, total_amount):
@@ -91,4 +93,4 @@ def test_consistency_checker_mismatch():
     )
     checker = ConsistencyChecker()
     flags = checker.analyze(bill)
-    assert any(f.issue_type == "CONTRADICTORY_TREATMENT" for f in flags)
+    assert any(f.mismatch_type == "DIAGNOSIS_MEDICINE" for f in flags)

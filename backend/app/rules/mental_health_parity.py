@@ -12,7 +12,8 @@ from .rule_registry import register_rule
 )
 def check_mental_health_parity(bill: HospitalBill, policy: InsurancePolicy, rejection: RejectionLetter) -> RuleVerdict:
     try:
-        has_mh_reason = any(getattr(reason, 'category', '') == "MENTAL_HEALTH" for reason in getattr(rejection, 'rejection_reasons', []))
+        reasons_list = getattr(rejection, 'rejection_reasons', None) or getattr(rejection, 'reasons', []) or []
+        has_mh_reason = any(getattr(reason, 'category', '') == "MENTAL_HEALTH" for reason in reasons_list)
         
         mh_keywords = ["depression", "anxiety", "schizophrenia", "bipolar", "ptsd", "ocd", "eating disorder", "substance use disorder", "psychiatric", "psychotherapy", "counselling"]
         diagnosis = (getattr(bill, 'diagnosis', '') or "").lower()

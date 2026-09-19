@@ -19,6 +19,8 @@ async def upload_document(
     file: UploadFile,
     document_type: str = Form(...),
     claim_id: Optional[str] = Form(None),
+    patient_email: Optional[str] = Form(None),
+    patient_phone: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     valid_types = ['HOSPITAL_BILL', 'INSURANCE_POLICY', 'REJECTION_LETTER']
@@ -28,6 +30,12 @@ async def upload_document(
     valid_mime_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/tiff']
     if file.content_type not in valid_mime_types:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file type")
+
+    # Simple email and phone validation if provided
+    if patient_email and '@' not in patient_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+    if patient_phone and not patient_phone.replace('+', '').isdigit():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number format")
 
     file.file.seek(0, 2)
     file_size = file.file.tell()
@@ -40,6 +48,8 @@ async def upload_document(
         new_claim = Claim(
             id=claim_id,
             patient_name="Unknown", # Will be extracted later
+            patient_email=patient_email,
+            patient_phone=patient_phone,
             status="PENDING",
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()

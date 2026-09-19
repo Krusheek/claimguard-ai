@@ -13,11 +13,12 @@ from .rule_registry import register_rule
 )
 def check_clause_timeline(bill: HospitalBill, policy: InsurancePolicy, rejection: RejectionLetter) -> RuleVerdict:
     try:
-        has_pre_existing = any(getattr(reason, 'category', '') == "PRE_EXISTING" for reason in getattr(rejection, 'rejection_reasons', []))
+        reasons_list = getattr(rejection, 'rejection_reasons', None) or getattr(rejection, 'reasons', []) or []
+        has_pre_existing = any(getattr(reason, 'category', '') == "PRE_EXISTING" for reason in reasons_list)
         if not has_pre_existing:
             return RuleVerdict(status="SKIPPED", rule_name="Clause Timeline Rule", rule_description="Validates if the rejection violates the moratorium period for pre-existing conditions.", confidence=1.0, finding="No PRE_EXISTING reason cited.")
             
-        policy_start = getattr(policy, 'policy_start_date', None)
+        policy_start = getattr(policy, 'inception_date', None) or getattr(policy, 'original_inception_date', None) or getattr(policy, 'policy_start_date', None)
         claim_date = getattr(rejection, 'claim_date', None)
         
         if not policy_start or not claim_date:

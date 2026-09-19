@@ -22,6 +22,8 @@ class SubLimit(BaseModel):
     max_percentage: Optional[float] = None
     description: str
 
+SubLimitConfig = SubLimit
+
 class InsurancePolicy(BaseModel):
     policy_number: str
     insurer_name: str

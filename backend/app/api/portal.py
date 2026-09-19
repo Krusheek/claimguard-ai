@@ -157,14 +157,20 @@ async def portal_submit(
         )
         db.add(doc)
 
+    analysis_run_id = str(uuid.uuid4())
+    analysis_run = AnalysisRun(
+        id=analysis_run_id,
+        claim_id=claim_id,
+        status="PENDING",
+        started_at=datetime.utcnow(),
+    )
+    db.add(analysis_run)
+
     await db.commit()
 
     # Trigger analysis pipeline in background
-    from ..api.analysis import run_analysis_pipeline
-    from fastapi import BackgroundTasks
     import asyncio
-
-    asyncio.create_task(_trigger_analysis(claim_id))
+    asyncio.create_task(_trigger_analysis(claim_id, analysis_run_id))
 
     return {
         "claim_id": claim_id,
@@ -175,12 +181,10 @@ async def portal_submit(
     }
 
 
-async def _trigger_analysis(claim_id: str):
+async def _trigger_analysis(claim_id: str, analysis_run_id: str):
     """Background task to trigger the AI analysis pipeline."""
-    from ..database import AsyncSessionLocal
     from ..api.analysis import run_analysis_pipeline
-    async with AsyncSessionLocal() as session:
-        await run_analysis_pipeline(claim_id, session)
+    await run_analysis_pipeline(claim_id, analysis_run_id)
 
 
 # ── Portal Status Endpoint ────────────────────────────────────────────
@@ -226,7 +230,7 @@ async def portal_claim_status(claim_id: str, db: AsyncSession = Depends(get_db))
     # Attach result summary if analysis is complete
     if analysis_run and claim.status == "COMPLETED":
         result_data = analysis_run.result_data or {}
-        verdicts = result_data.get("verdicts", [])
+        verdicts = result_data.get("verdicts") or result_data.get("rule_verdicts", [])
         violations = [v for v in verdicts if v.get("status") in ("FAIL", "NEEDS_REVIEW")]
         monetary = analysis_run.total_monetary_impact or 0
 

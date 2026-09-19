@@ -1,5 +1,35 @@
-from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, Any, List, Dict
+from pydantic import BaseModel, ConfigDict, Field
+
+class PDFRevisionInfo(BaseModel):
+    revision_count: int = 0
+    eof_offsets: List[int] = Field(default_factory=list)
+    has_incremental_updates: bool = False
+    suspicious_modifications: List[str] = Field(default_factory=list)
+    overwritten_objects: List[int] = Field(default_factory=list)
+
+class PDFInspectionResult(BaseModel):
+    is_tampered: bool = False
+    pdf_tamper_score: float = 0.0  # 0.0 to 1.0
+    revisions: PDFRevisionInfo = Field(default_factory=lambda: PDFRevisionInfo(revision_count=0))
+    anomalies: List[str] = Field(default_factory=list)
+    risk_level: str = "CLEAN"  # "CLEAN" | "SUSPICIOUS" | "TAMPERED"
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+class FactorAttribution(BaseModel):
+    category: str  # "forensics" | "billing" | "clinical" | "provider"
+    factor_name: str
+    impact_score: float  # contribution in range [-1.0, 1.0]
+    weight: float  # factor weight in overall composite calculation
+    description: str
+
+class CompositeFraudScore(BaseModel):
+    overall_fraud_score: float  # 0.0 to 100.0
+    risk_tier: str  # "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+    confidence: float  # 0.0 to 1.0
+    factor_attributions: List[FactorAttribution] = Field(default_factory=list)
+    top_risk_drivers: List[str] = Field(default_factory=list)
+    summary: str = ""
 
 class ELAResult(BaseModel):
     tamper_score: float
@@ -33,8 +63,11 @@ class ConsistencyFlag(BaseModel):
     details: str = ""
 
 class ForensicsResult(BaseModel):
+    model_config = ConfigDict(extra='ignore')
     claim_id: str = ""
     ela_result: Optional[ELAResult] = None
+    pdf_inspection_result: Optional[PDFInspectionResult] = None
+    composite_fraud_score: Optional[CompositeFraudScore] = None
     metadata_flags: list[MetadataFlag] = []
     bill_anomalies: list[BillAnomalyFlag] = []
     bill_anomaly_flags: list[BillAnomalyFlag] = []
