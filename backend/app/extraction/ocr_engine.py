@@ -19,13 +19,19 @@ class OCREngine:
         """Full page OCR."""
         if not TESSERACT_AVAILABLE:
             return ""
-        return pytesseract.image_to_string(image, config='--oem 3 --psm 6')
+        try:
+            return pytesseract.image_to_string(image, config='--oem 3 --psm 6')
+        except Exception:
+            return ""
         
     def extract_with_confidence(self, image: Any) -> tuple[str, float]:
         """OCR with average confidence score."""
         if not TESSERACT_AVAILABLE:
             return "", 0.0
-        data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+        try:
+            data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+        except Exception:
+            return "", 0.0
         text_parts = []
         confidences = []
         
@@ -43,7 +49,10 @@ class OCREngine:
         """Table-aware OCR using image_to_data."""
         if not TESSERACT_AVAILABLE:
             return []
-        data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+        try:
+            data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+        except Exception:
+            return []
         
         words = []
         for i in range(len(data['text'])):
@@ -86,5 +95,8 @@ class OCREngine:
         if not TESSERACT_AVAILABLE:
             return ""
         custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist="0123456789.,₹Rs/- "'
-        return pytesseract.image_to_string(image, config=custom_config).strip()
+        try:
+            return pytesseract.image_to_string(image, config=custom_config).strip()
+        except Exception:
+            return ""
 
