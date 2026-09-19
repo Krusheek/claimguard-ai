@@ -213,7 +213,8 @@ export default function TrackPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`/api/portal/status/${claimId}`)
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${baseUrl}/api/portal/status/${claimId}`)
       if (!res.ok) throw new Error('Claim not found')
       const data = await res.json()
       setClaimData(data)

@@ -131,7 +131,8 @@ export default function SubmitPage() {
       if (files.insurance_policy) form.append('insurance_policy', files.insurance_policy)
       if (files.rejection_letter) form.append('rejection_letter', files.rejection_letter)
 
-      const res = await fetch('/api/portal/submit', { method: 'POST', body: form })
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${baseUrl}/api/portal/submit`, { method: 'POST', body: form })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.detail || 'Submission failed')
