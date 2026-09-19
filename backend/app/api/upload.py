@@ -117,6 +117,11 @@ async def list_claims(db: AsyncSession = Depends(get_db)) -> list[dict]:
     return [
         {
             "id": claim.id,
+            "patient_name": claim.patient_name,
+            "patient_email": claim.patient_email,
+            "patient_phone": claim.patient_phone,
+            "policy_number": claim.policy_number,
+            "claim_number": claim.claim_number,
             "status": claim.status,
             "updated_at": claim.updated_at.isoformat() if claim.updated_at else None
         }
