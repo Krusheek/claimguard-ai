@@ -1,6 +1,6 @@
 import uuid
 import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from jinja2 import Environment, BaseLoader
 
@@ -54,8 +54,13 @@ class ReportGenerator:
         total_claimed = float(getattr(bill, 'total_amount', 0.0))
         insurer_approved = float(getattr(rejection, 'approved_amount', 0.0))
         
-        underpayment = sum(float(getattr(f, 'monetary_impact', 0.0) or 0.0) for f in tier1_findings)
-        correct_payable = insurer_approved + underpayment
+        impacts = [getattr(f, 'monetary_impact', None) for f in tier1_findings]
+        if any(impact is None for impact in impacts) and len(impacts) > 0:
+            underpayment = None
+            correct_payable = None
+        else:
+            underpayment = sum(float(i) for i in impacts) if impacts else 0.0
+            correct_payable = insurer_approved + underpayment
 
         report_id = str(uuid.uuid4())
         generated_at = datetime.datetime.utcnow().isoformat()
@@ -111,13 +116,21 @@ class ReportGenerator:
         
         Use formal Indian legal letter format.
         """
-        findings = [r for r in analysis.rule_verdicts if r.status == "FAIL"]
+        findings = [
+            r for r in analysis.rule_verdicts 
+            if r.status == "FAIL" and len(r.evidence_entries) > 0
+        ]
+        
         if not findings:
-            return "No grounds for appeal found. Claim processing appears correct."
+            return "No grounds for appeal found, or findings lack sufficient validated evidence ledger entries."
             
         template = self.env.from_string(APPEAL_LETTER_TEMPLATE)
         
-        total_impact = sum(float(getattr(f, 'monetary_impact', 0.0) or 0.0) for f in findings)
+        impacts = [getattr(f, 'monetary_impact', None) for f in findings]
+        if any(impact is None for impact in impacts) and len(impacts) > 0:
+            total_impact = None
+        else:
+            total_impact = sum(float(i) for i in impacts) if impacts else 0.0
         
         policy_number = getattr(policy, 'policy_number', 'N/A')
         claim_number = getattr(rejection, 'claim_number', 'N/A')
@@ -158,7 +171,7 @@ class ReportGenerator:
         """
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Arial", size=11)
+        pdf.set_font("Helvetica", size=10)
         
         for line in appeal_text.split('\n'):
             # Convert simple markdown bold back to text for FPDF to avoid printing **
@@ -166,8 +179,115 @@ class ReportGenerator:
             # replace rupee symbol for basic PDF compatibility
             clean_line = clean_line.replace('₹', 'Rs. ')
             # Fallback encode decode to ascii to ignore unexpected chars
-            clean_line = clean_line.encode('ascii', 'ignore').decode('ascii')
-            pdf.multi_cell(0, 5, txt=clean_line, align="L")
+            try:
+                pdf.multi_cell(0, 5, text=clean_line, align="L", new_x="LMARGIN", new_y="NEXT")
+            except TypeError:
+                pdf.multi_cell(0, 5, txt=clean_line, align="L")
+                pdf.set_x(getattr(pdf, "l_margin", 10))
             
         pdf.output(output_path)
         return output_path
+
+    def generate_ombudsman_form_via(
+        self,
+        complaint_data_or_analysis: Any,
+        bill: Any = None,
+        policy: Any = None,
+        rejection: Any = None,
+        pincode: Optional[str] = None,
+        output_pdf_path: Optional[str] = None
+    ) -> dict:
+        """
+        Generate statutory Insurance Ombudsman Form VI-A text and optional PDF.
+        Supports both direct complaint_data dict and model-based signature:
+        (analysis_res, bill, policy, rejection, pincode, output_pdf_path)
+        """
+        import datetime
+        from .ombudsman_form_generator import OmbudsmanFormGenerator, map_pincode_to_ombudsman
+        generator = OmbudsmanFormGenerator()
+
+        def _val(obj, attr, default=""):
+            if not obj:
+                return default
+            v = getattr(obj, attr, None)
+            if v is None and isinstance(obj, dict):
+                v = obj.get(attr)
+            if hasattr(v, 'value'):
+                return v.value if v.value is not None else default
+            return v if v is not None else default
+
+        if isinstance(complaint_data_or_analysis, dict) and bill is None and policy is None and rejection is None:
+            complaint_data = dict(complaint_data_or_analysis)
+        else:
+            analysis = complaint_data_or_analysis
+            patient_name = _val(bill, 'patient_name') or _val(policy, 'policyholder_name') or "Insured / Policyholder"
+            insurer = _val(policy, 'insurer_name') or _val(rejection, 'insurer_name') or "Insurance Company Ltd."
+            pol_num = _val(policy, 'policy_number') or "POL-XXXXXX"
+            claim_num = _val(rejection, 'claim_number') or "CLM-XXXXXX"
+            rep_date = _val(rejection, 'claim_date') or str(datetime.date.today().isoformat())
+            
+            disputed = 0.0
+            if hasattr(analysis, 'total_monetary_impact') and analysis.total_monetary_impact is not None:
+                disputed = float(analysis.total_monetary_impact)
+            elif isinstance(analysis, dict):
+                disputed = float(analysis.get('total_monetary_impact') or 0.0)
+
+            grounds = []
+            verdicts = getattr(analysis, 'rule_verdicts', []) if hasattr(analysis, 'rule_verdicts') else (analysis.get('rule_verdicts', []) if isinstance(analysis, dict) else [])
+            for v in verdicts:
+                status = getattr(v, 'status', None) or (v.get('status') if isinstance(v, dict) else None)
+                finding = getattr(v, 'finding', None) or (v.get('finding') if isinstance(v, dict) else "")
+                if status == "FAIL" and finding:
+                    grounds.append(str(finding))
+            grounds_text = "; ".join(grounds) if grounds else "Unlawful deduction and statutory breach of IRDAI regulations."
+
+            complaint_data = {
+                "complainant_name": patient_name,
+                "complainant_address": _val(bill, 'hospital_address', "Resident Address"),
+                "pincode": pincode or "400001",
+                "insurer_name": insurer,
+                "policy_number": pol_num,
+                "claim_number": claim_num,
+                "repudiation_date": rep_date,
+                "disputed_amount": disputed,
+                "grounds_summary": grounds_text
+            }
+
+        form_text = generator.generate_form_via_text(complaint_data)
+        pdf_path = None
+        if output_pdf_path:
+            pdf_path = generator.generate_form_via_pdf(complaint_data, output_pdf_path)
+        resolved_pin = str(complaint_data.get("pincode", pincode or "400001"))
+        jurisdiction = map_pincode_to_ombudsman(resolved_pin)
+        return {
+            "form_text": form_text,
+            "pdf_path": pdf_path,
+            "jurisdiction": jurisdiction
+        }
+
+    def generate_predischarge_alert(self, simulation_result: Any) -> dict:
+        """
+        Formats pre-discharge simulation result into an actionable patient advisory packet.
+        """
+        if hasattr(simulation_result, "to_dict"):
+            data = simulation_result.to_dict()
+        elif hasattr(simulation_result, "model_dump"):
+            data = simulation_result.model_dump()
+        elif isinstance(simulation_result, dict):
+            data = dict(simulation_result)
+        else:
+            data = {}
+
+        return {
+            "is_interim": data.get("is_interim", True),
+            "has_room_rent_excess": data.get("has_room_rent_excess", False),
+            "room_rate": data.get("actual_room_rate", 0.0),
+            "eligible_room_rate": data.get("eligible_room_rate", 0.0),
+            "projected_room_excess": data.get("projected_room_excess", 0.0),
+            "projected_proportionate_deduction": data.get("projected_proportionate_deduction", 0.0),
+            "projected_total_out_of_pocket": data.get("projected_total_out_of_pocket", 0.0),
+            "warning_message": data.get("warning_message", ""),
+            "recommended_action": data.get("recommended_action", ""),
+            "scrubbed_non_payable_items": data.get("scrubbed_non_payable_items", []),
+            "total_scrubbed_non_payables": data.get("total_scrubbed_non_payables", 0.0),
+        }

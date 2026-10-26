@@ -1,4 +1,6 @@
 import os
+import math
+import uuid
 try:
     import cv2
     import numpy as np
@@ -8,7 +10,6 @@ except ImportError:
     np = None
     CV2_AVAILABLE = False
 from PIL import Image
-from pdf2image import convert_from_path
 
 from typing import Any
 
@@ -16,7 +17,9 @@ def preprocess_image(image_path: str) -> Any:
     """Preprocess image for OCR. Returns numpy array if cv2 available, else PIL Image."""
     if not CV2_AVAILABLE:
         # Fallback: return PIL image for VLM path
-        return Image.open(image_path)
+        img = Image.open(image_path)
+        img.load() # Force load to release file lock on Windows
+        return img
 
     # Load image
     image = cv2.imread(image_path)
@@ -66,30 +69,72 @@ def preprocess_image(image_path: str) -> Any:
     
     return cleaned
 
-def pdf_to_images(pdf_path: str) -> list[str]:
+def pdf_to_images(
+    pdf_path: str,
+    max_pages: int = 30,
+    max_page_pixels: int = 40_000_000,
+    max_total_pixels: int = 40_000_000,
+) -> list[str]:
     """Convert PDF pages to temporary image files."""
-    images = convert_from_path(pdf_path)
+    import fitz
+    doc = fitz.open(pdf_path)
+    if getattr(doc, "is_encrypted", False):
+        doc.close()
+        raise ValueError("PDF is encrypted or password-protected")
+    if len(doc) == 0 or len(doc) > max_pages:
+        doc.close()
+        raise ValueError(f"PDF page count must be between 1 and {max_pages}")
     image_paths = []
     
     temp_dir = os.path.dirname(pdf_path)
-    for i, img in enumerate(images):
-        path = os.path.join(temp_dir, f"temp_page_{i}.png")
-        img.save(path, "PNG")
-        image_paths.append(path)
-        
+    try:
+        pages = list(doc)
+        page_sizes = []
+        total_pixels = 0
+        for page in pages:
+            width = math.ceil(page.rect.width * 150 / 72)
+            height = math.ceil(page.rect.height * 150 / 72)
+            page_pixels = width * height
+            if page_pixels <= 0 or page_pixels > max_page_pixels:
+                raise ValueError("PDF page dimensions exceed the processing limit")
+            total_pixels += page_pixels
+            if total_pixels > max_total_pixels:
+                raise ValueError("PDF total pixel count exceeds the processing limit")
+            page_sizes.append(page_pixels)
+
+        for i, page in enumerate(pages):
+            pix = page.get_pixmap(dpi=150)
+            path = os.path.join(temp_dir, f"temp_page_{uuid.uuid4().hex}_{i}.png")
+            pix.save(path)
+            image_paths.append(path)
+    except Exception:
+        for path in image_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        doc.close()
+        raise
+    doc.close()
     return image_paths
 
-def prepare_document(file_path: str) -> list[Any]:
+def prepare_document(
+    file_path: str,
+    max_pages: int = 30,
+    max_total_pixels: int = 40_000_000,
+) -> list[Any]:
     """Dispatcher to prepare a document (PDF or Image)."""
     ext = file_path.lower().split('.')[-1]
     
     if ext == 'pdf':
-        image_paths = pdf_to_images(file_path)
-        processed = [preprocess_image(path) for path in image_paths]
-        # Clean up temp files
-        for path in image_paths:
-            if os.path.exists(path):
-                os.remove(path)
-        return processed
+        image_paths = pdf_to_images(file_path, max_pages=max_pages, max_total_pixels=max_total_pixels)
+        try:
+            return [preprocess_image(path) for path in image_paths]
+        finally:
+            for path in image_paths:
+                if os.path.exists(path):
+                    os.remove(path)
     else:
+        with Image.open(file_path) as image:
+            if image.width * image.height > max_total_pixels:
+                raise ValueError("Image dimensions exceed the processing limit")
         return [preprocess_image(file_path)]
+

@@ -1,7 +1,11 @@
 __pycache__/
 *.py[cod]
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 *.sqlite3
+*.log
 .env
 uploads/
 node_modules/
@@ -12,3 +16,7 @@ dist/
 data/synthetic_bills/
 data/synthetic_policies/
 data/synthetic_rejections/
+venv/
+
+docs/security-scan-1.md
+docs/security-scan-1.json

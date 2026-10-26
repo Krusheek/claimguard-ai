@@ -1,4 +1,5 @@
 import json
+import re
 import base64
 import os
 from typing import Union, Any
@@ -8,10 +9,11 @@ from ..schemas.rejection_letter import RejectionLetter
 from .prompts import BILL_EXTRACTION_PROMPT, POLICY_EXTRACTION_PROMPT, REJECTION_EXTRACTION_PROMPT
 
 class VLMExtractor:
-    def __init__(self, provider: str, api_key: str):
+    def __init__(self, provider: str, api_key: str, model: str = None):
         self.provider = provider.lower()
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o")
         self.anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
+        self.gemini_model = model or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
         
         if self.provider == 'anthropic':
             import anthropic
@@ -19,17 +21,35 @@ class VLMExtractor:
         elif self.provider == 'openai':
             import openai
             self.client = openai.OpenAI(api_key=api_key)
+        elif self.provider == 'gemini':
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            self.client = genai
         else:
-            raise ValueError("Provider must be 'anthropic' or 'openai'")
+            raise ValueError("Provider must be 'anthropic', 'openai', or 'gemini'")
 
     def _fix_mime_type(self, mime_type: str) -> str:
         if mime_type == 'application/pdf':
             return 'image/png' # Assuming upstream converted it to PNG bytes already
         return mime_type
 
+    @staticmethod
+    def _image_list(image_bytes: Union[bytes, list[bytes]]) -> list[bytes]:
+        return image_bytes if isinstance(image_bytes, list) else [image_bytes]
+
     def _extract_anthropic(self, image_bytes: bytes, mime_type: str, system_prompt: str, schema_class: Any, tool_name: str) -> Any:
         mime_type = self._fix_mime_type(mime_type)
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+        image_content = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": mime_type,
+                    "data": base64.b64encode(page).decode("utf-8"),
+                },
+            }
+            for page in self._image_list(image_bytes)
+        ]
         
         schema = schema_class.model_json_schema()
         
@@ -46,15 +66,7 @@ class VLMExtractor:
             messages=[
                 {
                     "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": mime_type,
-                                "data": b64_image
-                            }
-                        },
+                    "content": image_content + [
                         {
                             "type": "text",
                             "text": "Extract the requested information from this document."
@@ -74,7 +86,15 @@ class VLMExtractor:
 
     def _extract_openai(self, image_bytes: bytes, mime_type: str, system_prompt: str, schema_class: Any) -> Any:
         mime_type = self._fix_mime_type(mime_type)
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+        image_content = [
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{mime_type};base64,{base64.b64encode(page).decode('utf-8')}"
+                },
+            }
+            for page in self._image_list(image_bytes)
+        ]
         
         response = self.client.beta.chat.completions.parse(
             model=self.openai_model,
@@ -85,13 +105,7 @@ class VLMExtractor:
                 },
                 {
                     "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime_type};base64,{b64_image}"
-                            }
-                        },
+                    "content": image_content + [
                         {
                             "type": "text",
                             "text": "Extract the requested information from this document."
@@ -104,20 +118,50 @@ class VLMExtractor:
         
         return response.choices[0].message.parsed
 
+    def _extract_gemini(self, image_bytes: bytes, mime_type: str, system_prompt: str, schema_class: Any) -> Any:
+        mime_type = self._fix_mime_type(mime_type)
+        model = self.client.GenerativeModel(
+            model_name=self.gemini_model,
+            system_instruction=system_prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
+        
+        images = [
+            {"mime_type": mime_type, "data": page}
+            for page in self._image_list(image_bytes)
+        ]
+        
+        schema_json = json.dumps(schema_class.model_json_schema())
+        prompt_text = f"Extract the requested information from this document. Return ONLY valid JSON matching this exact JSON schema (do not hallucinate fields, ensure required fields are present):\n{schema_json}"
+        response = model.generate_content([*images, prompt_text])
+        
+        raw_text = response.text.strip()
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text, flags=re.IGNORECASE)
+            raw_text = re.sub(r"\s*```$", "", raw_text)
+        data = json.loads(raw_text)
+        return schema_class.model_validate(data)
+
     def extract_hospital_bill(self, image_bytes: bytes, mime_type: str) -> HospitalBill:
+        if self.provider == 'gemini':
+            return self._extract_gemini(image_bytes, mime_type, BILL_EXTRACTION_PROMPT, HospitalBill)
         return self._extract_anthropic(image_bytes, mime_type, BILL_EXTRACTION_PROMPT, HospitalBill, "extract_hospital_bill") if self.provider == 'anthropic' else self._extract_openai(image_bytes, mime_type, BILL_EXTRACTION_PROMPT, HospitalBill)
 
     def extract_insurance_policy(self, image_bytes: bytes, mime_type: str) -> InsurancePolicy:
+        if self.provider == 'gemini':
+            return self._extract_gemini(image_bytes, mime_type, POLICY_EXTRACTION_PROMPT, InsurancePolicy)
         return self._extract_anthropic(image_bytes, mime_type, POLICY_EXTRACTION_PROMPT, InsurancePolicy, "extract_insurance_policy") if self.provider == 'anthropic' else self._extract_openai(image_bytes, mime_type, POLICY_EXTRACTION_PROMPT, InsurancePolicy)
 
     def extract_rejection_letter(self, image_bytes: bytes, mime_type: str) -> RejectionLetter:
+        if self.provider == 'gemini':
+            return self._extract_gemini(image_bytes, mime_type, REJECTION_EXTRACTION_PROMPT, RejectionLetter)
         return self._extract_anthropic(image_bytes, mime_type, REJECTION_EXTRACTION_PROMPT, RejectionLetter, "extract_rejection_letter") if self.provider == 'anthropic' else self._extract_openai(image_bytes, mime_type, REJECTION_EXTRACTION_PROMPT, RejectionLetter)
 
     def classify_document(self, image_bytes: bytes, mime_type: str) -> str:
         mime_type = self._fix_mime_type(mime_type)
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
         
-        prompt = "Classify this document as exactly one of: 'bill', 'policy', or 'rejection'. Respond with only that word."
+        prompt = "Classify this document as exactly one of: 'bill', 'policy', or 'rejection'. Respond with only that word in lowercase."
         
         if self.provider == 'anthropic':
             response = self.client.messages.create(
@@ -134,6 +178,11 @@ class VLMExtractor:
                 ]
             )
             return response.content[0].text.strip().lower()
+        elif self.provider == 'gemini':
+            model = self.client.GenerativeModel(self.gemini_model)
+            img = {"mime_type": mime_type, "data": image_bytes}
+            response = model.generate_content([img, prompt])
+            return response.text.strip().lower()
         else:
             response = self.client.chat.completions.create(
                 model=self.openai_model,
